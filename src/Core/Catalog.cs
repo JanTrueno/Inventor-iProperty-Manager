@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -13,7 +13,6 @@ namespace IPropertyManager.Core
         public string Name;
         public FieldKind Kind;
         public string Tab;   // the tab of Inventor's iProperties dialog it appears on
-        public bool ReadOnly;
     }
 
     /// <summary>

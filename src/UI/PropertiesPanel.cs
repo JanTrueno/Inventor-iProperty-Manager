@@ -445,7 +445,7 @@ namespace IPropertyManager.UI
                 if (spec.Kind == FieldKind.YesNo) input = new ThemedCombo(_theme);
                 else
                 {
-                    var box = new FieldBox(_theme) { ReadOnly = spec.IsReadOnly };
+                    var box = new FieldBox(_theme);
                     box.Committed += Save;
                     input = box;
                 }
@@ -453,7 +453,7 @@ namespace IPropertyManager.UI
                 Label label = Row(t, spec.Name, input);
                 FieldSpec s = spec;
                 label.MouseUp += (o, e) => { if (e.Button == MouseButtons.Right) RowMenu(s).Show(label, e.Location); };
-                ToolTip(label, spec.Name + " (right-click to move or remove)");
+                _tips.SetToolTip(label, spec.Name + " (right-click to move or remove)");
             }
 
             // "+" under the rows, aligned with the fields
@@ -494,7 +494,6 @@ namespace IPropertyManager.UI
         }
 
         private readonly ToolTip _tips = new ToolTip();
-        private void ToolTip(Control c, string text) => _tips.SetToolTip(c, text);
 
         // ----- behaviour ----------------------------------------------------------------------------------------
 

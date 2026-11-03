@@ -12,10 +12,11 @@ namespace IPropertyManager.UI
     /// </summary>
     internal static class DockHost
     {
-        private const string WindowName = "IPropertyManager.PropertiesPanel";   // renamed to start with a clean saved layout
+        // Inventor saves the window's place under this name; changing it starts the user's layout over.
+        private const string WindowName = "IPropertyManager.PropertiesPanel";
         private const int SettleMs = 150;
-        private const int MinWidth = 200, MinHeight = 160;
 
+        /// <summary>The borderless top-level form that Inventor re-parents into the dockable window.</summary>
         private sealed class HostForm : Form
         {
             public HostForm()
@@ -24,8 +25,7 @@ namespace IPropertyManager.UI
                 ShowInTaskbar = false;
                 StartPosition = FormStartPosition.Manual;
                 Location = new System.Drawing.Point(-32000, -32000);   // never flashes on screen before it is adopted
-                MinimumSize = new System.Drawing.Size(MinWidth, MinHeight);
-                Size = MinimumSize;            }
+            }
         }
 
         private static Inventor.Application _app;
@@ -40,25 +40,18 @@ namespace IPropertyManager.UI
         public static void Init(Inventor.Application app, string clientGuid)
         {
             _app = app;
-            // Placement is left entirely to Inventor's own layout, which restores the window per environment by itself.
-            // Setting any docking state here (even kDockLastKnown) overrode that layout when a document was activated, so
-            // none is set. A window still there from an unload in this session is reused, not deleted, and Shutdown
-            // leaves it intact so Inventor can save where it was.
+            // Placement is left to Inventor's own layout, which restores the window per environment by itself; setting a
+            // docking state here overrides it. A window still there from an unload in this session is reused, and
+            // Shutdown leaves it intact so Inventor can save where it was.
             try { _window = app.UserInterfaceManager.DockableWindows[WindowName]; }
             catch { _window = app.UserInterfaceManager.DockableWindows.Add(clientGuid, WindowName, "iProperties"); }
             _window.ShowVisibilityCheckBox = true;   // listed under View > User Interface like Inventor's own panels
             _window.DisabledDockingStates = DockingStateEnum.kDockTop | DockingStateEnum.kDockBottom;   // a side column only
-            // Without a minimum, Inventor restored a split under the Model browser at height 0 (the window is hidden on
-            // the start screen) and then turned the empty pane into a column of its own.
-            _window.SetMinimumSize(MinHeight, MinWidth);
 
-            // The content is a borderless top-level form that Inventor re-parents into the window.
             _host = new HostForm();
             _panel = new PropertiesPanel(app, Theme.Detect(app));
             _host.Controls.Add(_panel);
-            // Owned by Inventor's main window before it is docked: an unowned form was not kept in a split under the Model
-            // browser across restarts (Inventor restored it at height 0 and moved it to a column of its own).
-            _host.Show(new InventorWindow(app.MainFrameHWND));
+            _host.Show(new InventorWindow(app.MainFrameHWND));   // owned by Inventor's frame before it is docked
             _window.AddChild(_host.Handle.ToInt64());
 
             _settle.Tick += OnSettled;

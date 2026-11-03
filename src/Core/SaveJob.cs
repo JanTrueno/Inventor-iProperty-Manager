@@ -1,6 +1,5 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using Inventor;
 
 namespace IPropertyManager.Core
@@ -64,7 +63,5 @@ namespace IPropertyManager.Core
             try { app.ActiveDocument.Update(); } catch { /* the view refreshes on its own */ }
             return outcome;
         }
-
-        public static bool AnyParts(IEnumerable<_Document> docs) => docs.Any(d => d is PartDocument);
     }
 }

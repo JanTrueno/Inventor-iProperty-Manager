@@ -103,16 +103,6 @@ namespace IPropertyManager.UI
             set => _text.PlaceholderText = value ?? "";
         }
 
-        /// <summary>Offers these values while typing.</summary>
-        public void SetSuggestions(string[] values)
-        {
-            var source = new AutoCompleteStringCollection();
-            source.AddRange(values);
-            _text.AutoCompleteCustomSource = source;
-            _text.AutoCompleteSource = AutoCompleteSource.CustomSource;
-            _text.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-        }
-
         /// <summary>Raised when Enter is pressed in the field.</summary>
         public event Action Committed;
 

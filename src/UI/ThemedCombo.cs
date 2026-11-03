@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -39,7 +39,7 @@ namespace IPropertyManager.UI
         }
 
         /// <summary>The chosen value, or null while the hint is chosen.</summary>
-        public string Value => SelectedItem is string s && !ReferenceEquals(s, _hint) && s != _hint ? s : null;
+        public string Value => SelectedItem is string s && s != _hint ? s : null;
 
         protected override void OnDrawItem(DrawItemEventArgs e)
         {

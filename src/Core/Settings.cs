@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,8 +26,6 @@ namespace IPropertyManager.Core
             else if (string.IsNullOrWhiteSpace(Set)) Set = Catalog.CustomSet;
             return this;
         }
-
-        public bool IsReadOnly => Catalog.Find(Name)?.ReadOnly == true;
     }
 
     /// <summary>
