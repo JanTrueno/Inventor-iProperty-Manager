@@ -32,23 +32,20 @@ namespace IPropertyManager.UI
         public static void Init(Inventor.Application app, string clientGuid)
         {
             _app = app;
-            try { app.UserInterfaceManager.DockableWindows[WindowName].Delete(); } catch { /* none left from before */ }
+            try { app.UserInterfaceManager.DockableWindows[WindowName].Delete(); } catch { /* none left from an unload */ }
+
+            // Inventor itself remembers where the window was (side, size, place in the column) as long as the window is
+            // still intact when Inventor closes and asks for its last-known state, set before the content is attached.
+            // So the placement is left entirely to Inventor, and Shutdown neither deletes the window nor destroys its content.
+            _window = app.UserInterfaceManager.DockableWindows.Add(clientGuid, WindowName, "iProperties");
+            _window.ShowVisibilityCheckBox = true;   // listed under View > User Interface like Inventor's own panels
+            _window.DockingState = DockingStateEnum.kDockLastKnown;
 
             _host = new HostControl();
             _ = _host.Handle; // make sure the native window exists before Inventor adopts it
-            _window = app.UserInterfaceManager.DockableWindows.Add(clientGuid, WindowName, "iProperties");
-            _window.ShowVisibilityCheckBox = true;   // listed under View > User Interface like Inventor's own panels
-            _window.SetMinimumSize(220, 200);
-            _window.AddChild(_host.Handle.ToInt32());
-            // Inventor does not remember where an add-in's window was, and at start-up the Model browser it may be docked
-            // against does not exist yet. So the placement saved on exit (or, the first time, bottom left under the Model
-            // browser) is applied a moment later, retrying until the browser is there.
-            _window.DockingState = DockingStateEnum.kDockLeft;
-            _place.Tick += OnPlace;
-            _place.Start();
-
             _panel = new PropertiesPanel(app, Theme.Detect(app));
             _host.Controls.Add(_panel);
+            _window.AddChild(_host.Handle.ToInt32());
 
             _settle.Tick += OnSettled;
             _input = app.CommandManager.UserInputEvents;
@@ -73,6 +70,10 @@ namespace IPropertyManager.UI
             }
         }
 
+        /// <summary>
+        /// Stops listening to Inventor. The window and its content are left alone so Inventor can save their placement
+        /// after the add-in has unloaded; a leftover from an unload in the add-in manager is replaced by Init.
+        /// </summary>
         public static void Shutdown()
         {
             _settle.Stop();
@@ -86,38 +87,7 @@ namespace IPropertyManager.UI
                 _appEvents.OnDocumentChange -= OnDocumentChange;
             }
             catch { }
-            _place.Stop();
-            _place.Tick -= OnPlace;
-            if (_window != null && _placed) Placement.Save(_window);
-            try { _window?.Delete(); } catch { }
-            try { _host?.Dispose(); } catch { }
-            _window = null; _host = null; _panel = null; _input = null; _appEvents = null; _app = null;
-        }
-
-        // ----- placement ----------------------------------------------------------------------------------------
-
-        private static readonly Timer _place = new Timer { Interval = 1000 };
-        private static int _placeTries;
-        private static bool _placed;
-
-        private static void OnPlace(object sender, EventArgs e)
-        {
-            if (_window == null) { _place.Stop(); return; }
-            Placement saved = Placement.Load();
-            DockableWindow target = Placement.Find(_app, saved != null ? saved.DockedTo : Placement.BrowserName(_app));
-            bool needsTarget = saved == null || !string.IsNullOrEmpty(saved.DockedTo);
-            if (needsTarget && target == null && ++_placeTries < 20) return;   // the browser is not there yet
-
-            _place.Stop();
-            try
-            {
-                if (saved != null) saved.Apply(_window, target);
-                else if (target != null) _window.SetDockingState(DockingStateEnum.kDockBottom, target);
-                Log.Write("Placed panel: " + (saved != null ? "saved " + saved.State : "default") +
-                          (target != null ? " against " + target.InternalName : " (no window to dock against)"));
-            }
-            catch (Exception ex) { Log.Write("Placing the panel failed: " + ex.Message); }
-            _placed = true;
+            _input = null; _appEvents = null; _app = null;
         }
 
         // ----- events -------------------------------------------------------------------------------------------
@@ -162,7 +132,7 @@ namespace IPropertyManager.UI
             _settle.Stop();
             bool selection = _selectionDue, values = _valuesDue;
             _selectionDue = _valuesDue = false;
-            if (_panel == null || !Visible) return;   // catch up when shown
+            if (_panel == null || _app == null || !Visible) return;   // catch up when shown
             try
             {
                 if (selection) _panel.FollowSelection();
