@@ -57,6 +57,9 @@ namespace IPropertyManager.UI
 
         public bool HasEdits => _dirty.Count > 0 || _materialDirty;
 
+        /// <summary>The Inventor theme the panel was coloured for.</summary>
+        public string ThemeName => _theme.Name;
+
         // ----- public API ---------------------------------------------------------------------------------------
 
         /// <summary>Shows the documents behind the selection; while there are unsaved edits it stays where it is.</summary>

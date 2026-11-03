@@ -12,9 +12,23 @@ namespace IPropertyManager.UI
     internal sealed class Theme
     {
         public bool Dark;
+        public string Name = "";   // Inventor's theme name, to notice when the user switches theme
         public Color Back, Header, Field, FieldInvalid, Text, Dim, Accent, AccentFill, Hover, Outline, OkBorder, Link;
 
+        /// <summary>The name of Inventor's active theme, or "" if it cannot be read.</summary>
+        public static string ActiveName(Inventor.Application app)
+        {
+            try { return app.ThemeManager.ActiveTheme.Name ?? ""; } catch { return ""; }
+        }
+
         public static Theme Detect(Inventor.Application app)
+        {
+            Theme t = DetectColors(app);
+            t.Name = ActiveName(app);
+            return t;
+        }
+
+        private static Theme DetectColors(Inventor.Application app)
         {
             Inventor.ThemeManager tm = null;
             bool dark = true;

@@ -63,6 +63,7 @@ namespace IPropertyManager.UI
             _appEvents.OnActivateDocument += OnActivateDocument;
             _appEvents.OnCloseDocument += OnCloseDocument;
             _appEvents.OnDocumentChange += OnDocumentChange;
+            _appEvents.OnApplicationOptionChange += OnOptionChange;
             _windowEvents = app.UserInterfaceManager.DockableWindows.Events;
             _windowEvents.OnShow += OnWindowShow;
             _windowEvents.OnHide += OnWindowHide;
@@ -151,6 +152,7 @@ namespace IPropertyManager.UI
                 _appEvents.OnActivateDocument -= OnActivateDocument;
                 _appEvents.OnCloseDocument -= OnCloseDocument;
                 _appEvents.OnDocumentChange -= OnDocumentChange;
+                _appEvents.OnApplicationOptionChange -= OnOptionChange;
                 _windowEvents.OnShow -= OnWindowShow;
                 _windowEvents.OnHide -= OnWindowHide;
             }
@@ -191,6 +193,28 @@ namespace IPropertyManager.UI
             if (timing == EventTimingEnum.kAfter) Schedule(selection: false);
         }
 
+        // The theme is changed in Application Options; there is no theme event, so it is checked on every refresh too.
+        private static void OnOptionChange(EventTimingEnum timing, NameValueMap context, out HandlingCodeEnum handling)
+        {
+            handling = HandlingCodeEnum.kEventNotHandled;
+            if (timing == EventTimingEnum.kAfter) Schedule(selection: true);
+        }
+
+        /// <summary>Rebuilds the panel in the new colours when the user has switched Inventor's theme.</summary>
+        private static void FollowTheme()
+        {
+            string name = Theme.ActiveName(_app);
+            if (name.Length == 0 || name == _panel.ThemeName || _panel.HasEdits) return;
+            var old = _panel;
+            _host.SuspendLayout();
+            Log.Write("Theme changed to " + name);
+            _panel = new PropertiesPanel(_app, Theme.Detect(_app));
+            _host.Controls.Add(_panel);
+            _host.Controls.Remove(old);
+            _host.ResumeLayout();
+            old.Dispose();
+        }
+
         private static void Schedule(bool selection)
         {
             if (selection) _selectionDue = true; else _valuesDue = true;
@@ -206,6 +230,9 @@ namespace IPropertyManager.UI
             if (_panel == null || _app == null || !Visible) return;   // catch up when shown
             try
             {
+                string before = _panel.ThemeName;
+                FollowTheme();
+                if (_panel.ThemeName != before) selection = true;   // a new panel shows nothing yet
                 if (selection) _panel.FollowSelection();
                 else if (values) _panel.ReloadValues();
             }
