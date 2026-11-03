@@ -166,6 +166,17 @@ namespace IPropertyManager.UI
 
         // ----- saving -------------------------------------------------------------------------------------------
 
+        /// <summary>Tab: on to the next text field (Shift+Tab: the previous one), wrapping round.</summary>
+        private void FocusNext(FieldSpec from, bool back)
+        {
+            List<FieldBox> boxes = _fields.Select(f => _inputs.TryGetValue(f, out Control c) ? c as FieldBox : null)
+                                          .Where(b => b != null && b.Enabled).ToList();
+            if (boxes.Count == 0 || !(_inputs.TryGetValue(from, out Control current) && current is FieldBox cur)) return;
+            int i = boxes.IndexOf(cur);
+            int next = ((i < 0 ? 0 : i) + (back ? -1 : 1) + boxes.Count) % boxes.Count;
+            boxes[next].FocusField();
+        }
+
         private void Save()
         {
             if (_docs.Count == 0 || !HasEdits) return;
@@ -447,6 +458,9 @@ namespace IPropertyManager.UI
                 {
                     var box = new FieldBox(_theme);
                     box.Committed += Save;
+                    FieldSpec tabbedFrom = spec;
+                    // Tab saves, then moves on; a value that did not save (e.g. not a date) keeps the cursor here.
+                    box.Tabbed += back => { Save(); if (!HasEdits) FocusNext(tabbedFrom, back); };
                     input = box;
                 }
                 _inputs[spec] = input;

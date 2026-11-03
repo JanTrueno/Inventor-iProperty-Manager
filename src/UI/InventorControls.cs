@@ -62,8 +62,26 @@ namespace IPropertyManager.UI
     internal sealed class FieldBox : Panel
     {
         private readonly Theme _theme;
-        private readonly TextBox _text = new TextBox { BorderStyle = BorderStyle.None };
+        private readonly TabTextBox _text = new TabTextBox { BorderStyle = BorderStyle.None };
         private bool _focused;
+
+        /// <summary>
+        /// A text box that receives Tab itself instead of leaving it to dialog navigation (WinForms' and Inventor's
+        /// frame), so the field can save before moving on.
+        /// </summary>
+        private sealed class TabTextBox : TextBox
+        {
+            private const int WM_GETDLGCODE = 0x87, DLGC_WANTTAB = 0x2;
+
+            protected override bool IsInputKey(Keys keyData) =>
+                (keyData & Keys.KeyCode) == Keys.Tab || base.IsInputKey(keyData);
+
+            protected override void WndProc(ref Message m)
+            {
+                base.WndProc(ref m);
+                if (m.Msg == WM_GETDLGCODE) m.Result = new IntPtr(m.Result.ToInt64() | DLGC_WANTTAB);
+            }
+        }
 
         public new event EventHandler TextChanged;
 
@@ -106,9 +124,20 @@ namespace IPropertyManager.UI
         /// <summary>Raised when Enter is pressed in the field.</summary>
         public event Action Committed;
 
+        /// <summary>Raised when Tab is pressed in the field; true for Shift+Tab (back).</summary>
+        public event Action<bool> Tabbed;
+
         private void OnKeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter) { Committed?.Invoke(); e.Handled = e.SuppressKeyPress = true; }
+            else if (e.KeyCode == Keys.Tab) { Tabbed?.Invoke(e.Shift); e.Handled = e.SuppressKeyPress = true; }
+        }
+
+        /// <summary>Puts the cursor in the field with its text selected, as tabbing into a field does.</summary>
+        public void FocusField()
+        {
+            _text.Focus();
+            _text.SelectAll();
         }
 
         protected override void OnPaint(PaintEventArgs e)
