@@ -32,7 +32,7 @@ namespace IPropertyManager.UI
         private readonly Label _materialNote = new Label { AutoSize = true, Tag = "keep" };
         private readonly Label _status = new Label { AutoSize = false, Dock = DockStyle.Bottom, Height = 34, Padding = new Padding(8, 2, 8, 0), Tag = "keep", Visible = false };
         private readonly Dictionary<FieldSpec, Control> _inputs = new Dictionary<FieldSpec, Control>();
-        private IconButton _copy, _add;
+        private IconButton _copy, _folder, _add;
         private ThemedCombo _material;
         private FieldBox _mass;
         private InventorButton _save, _revert;
@@ -362,6 +362,7 @@ namespace IPropertyManager.UI
         private void Build()
         {
             _copy = new IconButton(_theme, "Copy the name", DrawCopy) { Size = new Size(26, 22) };
+            _folder = new IconButton(_theme, "Open the folder in Explorer", DrawFolder) { Size = new Size(26, 22) };
             _add = new IconButton(_theme, "Add an iProperty", DrawPlus) { Size = new Size(26, 22) };
             _material = new ThemedCombo(_theme);
             _mass = new FieldBox(_theme) { ReadOnly = true };
@@ -420,16 +421,18 @@ namespace IPropertyManager.UI
 
         private Control SelectionTable()
         {
-            var t = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            var t = new TableLayoutPanel { ColumnCount = 3, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
             _caption.Margin = new Padding(0, 2, 0, 0);
             _subCaption.Margin = new Padding(0, 0, 0, 2);
-            _copy.Margin = Padding.Empty;
+            _copy.Margin = _folder.Margin = Padding.Empty;
             t.Controls.Add(_caption, 0, 0);
             t.Controls.Add(_copy, 1, 0);
+            t.Controls.Add(_folder, 2, 0);
             t.Controls.Add(_subCaption, 0, 1);
-            t.SetColumnSpan(_subCaption, 2);
+            t.SetColumnSpan(_subCaption, 3);
             return t;
         }
 
@@ -524,6 +527,7 @@ namespace IPropertyManager.UI
                 if (text.Length == 0) return;
                 try { Clipboard.SetText(text); SetStatus("Copied.", false); } catch { /* clipboard busy */ }
             };
+            _folder.Click += (s, e) => OpenFolder();
             _save.Click += (s, e) => Save();
             _revert.Click += (s, e) => Revert();
         }
@@ -533,6 +537,20 @@ namespace IPropertyManager.UI
             if (keyData == (Keys.Control | Keys.S)) { Save(); return true; }
             if (keyData == Keys.Escape && HasEdits) { Revert(); return true; }
             return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        /// <summary>Opens Explorer on the shown document's folder with the file selected (the first one when several are shown).</summary>
+        private void OpenFolder()
+        {
+            string path = null;
+            try { path = _docs.FirstOrDefault()?.FullFileName; } catch { }
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
+            {
+                SetStatus(_docs.Count == 0 ? "No document shown." : "This document has not been saved to a file yet.", false);
+                return;
+            }
+            try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); }
+            catch (Exception ex) { SetStatus("Could not open Explorer: " + ex.Message, true); }
         }
 
         private void UpdateButtons()
@@ -563,6 +581,20 @@ namespace IPropertyManager.UI
             {
                 g.DrawRectangle(pen, cx - 5, cy - 3, 8, 9);
                 g.DrawLines(pen, new[] { new PointF(cx - 2, cy - 3), new PointF(cx - 2, cy - 6), new PointF(cx + 6, cy - 6), new PointF(cx + 6, cy + 3), new PointF(cx + 3, cy + 3) });
+            }
+        }
+
+        private static void DrawFolder(Graphics g, Rectangle b, Color ink, Color accent)
+        {
+            float cx = b.X + b.Width / 2f, cy = b.Y + b.Height / 2f;
+            using (var pen = new Pen(ink, 1.2f))
+            {
+                g.DrawLines(pen, new[]
+                {
+                    new PointF(cx - 7, cy + 5), new PointF(cx - 7, cy - 5), new PointF(cx - 2, cy - 5), new PointF(cx, cy - 3),
+                    new PointF(cx + 7, cy - 3), new PointF(cx + 7, cy + 5), new PointF(cx - 7, cy + 5)
+                });
+                g.DrawLine(pen, cx - 7, cy - 1, cx + 7, cy - 1);
             }
         }
 
