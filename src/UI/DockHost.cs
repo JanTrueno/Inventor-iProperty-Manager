@@ -40,7 +40,9 @@ namespace IPropertyManager.UI
             _window.ShowVisibilityCheckBox = true;   // listed under View > User Interface like Inventor's own panels
             _window.SetMinimumSize(220, 200);
             _window.AddChild(_host.Handle.ToInt32());
-            _window.DockingState = DockingStateEnum.kDockRight;
+            // Dock on the right only the very first time; after that Inventor restores wherever the user put it.
+            if (FirstRun()) _window.DockingState = DockingStateEnum.kDockRight;
+            else _window.DockingState = DockingStateEnum.kDockLastKnown;
 
             _panel = new PropertiesPanel(app, Theme.Detect(app));
             _host.Controls.Add(_panel);
@@ -81,9 +83,25 @@ namespace IPropertyManager.UI
                 _appEvents.OnDocumentChange -= OnDocumentChange;
             }
             catch { }
-            try { _window?.Delete(); } catch { }
+            // The window is not deleted: Inventor saves its position and size on exit, and deleting it would discard
+            // that. A leftover from an unload in the add-in manager is removed by Init on the next load.
             try { _host?.Dispose(); } catch { }
             _window = null; _host = null; _panel = null; _input = null; _appEvents = null; _app = null;
+        }
+
+        /// <summary>True once per user: leaves a marker so later starts keep the user's placement.</summary>
+        private static bool FirstRun()
+        {
+            string marker = System.IO.Path.Combine(
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "IPropertyManager", "placed");
+            try
+            {
+                if (System.IO.File.Exists(marker)) return false;
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(marker));
+                System.IO.File.WriteAllText(marker, "");
+            }
+            catch { /* worst case it docks right again */ }
+            return true;
         }
 
         // ----- events -------------------------------------------------------------------------------------------
