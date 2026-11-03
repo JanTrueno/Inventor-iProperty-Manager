@@ -1,5 +1,5 @@
 ﻿# Builds the add-in and packs it into dist\IPropertyManager-Setup-<version>.exe with Inno Setup 6.
-# Usage:  powershell -ExecutionPolicy Bypass -File build-installer.ps1 [-Version 0.1.0]
+# Usage:  powershell -ExecutionPolicy Bypass -File build-installer.ps1 [-Version 1.0.0]
 param([string]$Version)
 
 $ErrorActionPreference = 'Stop'
