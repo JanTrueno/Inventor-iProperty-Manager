@@ -1,4 +1,4 @@
-# Builds the add-in and packs it into dist\IPropertyManager-Setup-<version>.exe with Inno Setup 6.
+﻿# Builds the add-in and packs it into dist\IPropertyManager-Setup-<version>.exe with Inno Setup 6.
 # Usage:  powershell -ExecutionPolicy Bypass -File build-installer.ps1 [-Version 0.1.0]
 param([string]$Version)
 
@@ -15,10 +15,6 @@ $iscc = @(
     "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw 'Inno Setup 6 not found. Install it with: winget install JRSoftware.InnoSetup' }
-
-if (-not (Test-Path (Join-Path $root 'installer\IPropertyManager.ico'))) {
-    & (Join-Path $root 'installer\make-art.ps1')
-}
 
 dotnet build (Join-Path $root 'IPropertyManager.csproj') -c Release --nologo -v q
 if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
