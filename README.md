@@ -4,13 +4,16 @@ Small Autodesk Inventor add-in that puts the iProperties you use most in a docke
 without opening the iProperties dialog. The panel is built in Inventor's own style and follows your theme. It works in
 parts, assemblies and drawings.
 
+**Change materials straight from the drawing**: click a view or an edge of a part in an IDW, pick the new material in the
+panel and save. The part gets the new material and the parts list updates, without opening the part.
+
 ## Features
 
 - **Always at hand**: shows the iProperties of the active part, assembly or drawing (IDW/DWG), or of the components you select.
 - **Drawings**: select a view, or an edge in a view, to see and edit the part or assembly behind it, including parts inside subassemblies.
 - **Several at once**: select more components and edit them together. Shared values are shown, and differing ones show *(multiple values)* and are left alone unless you type over them.
 - **Your own rows**: **+** adds a row from the Summary, Project or Status iProperties, grouped like Inventor's iProperties dialog, or any custom name. Custom properties are created when you save. Right-click a row label to move it or remove it from the panel.
-- **Material and mass**: change the material of the selected parts from the active material library, and see their mass (the total when several are selected).
+- **Material and mass**: change the material of the selected parts from the active material library, also from a drawing, so there is no need to open each part to change it. The mass is shown next to it (the total when several are selected).
 - **Quick actions**: copy the file name, or open its folder in Explorer.
 - **One undo step**: **Save** writes all changes to all shown documents as a single undo. **Enter** or **Tab** in a field also saves, and Tab then moves on to the next field. **Revert** or **Esc** discards the edits. Read-only documents (library, Content Center) are skipped.
 
