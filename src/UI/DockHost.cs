@@ -12,7 +12,7 @@ namespace IPropertyManager.UI
     /// </summary>
     internal static class DockHost
     {
-        private const string WindowName = "IPropertyManager.iProperties";   // renamed once to drop a damaged saved layout
+        private const string WindowName = "IPropertyManager.PropertiesPanel";   // renamed to start with a clean saved layout
         private const int SettleMs = 150;
         private const int MinWidth = 200, MinHeight = 160;
 
@@ -56,8 +56,10 @@ namespace IPropertyManager.UI
             _host = new HostForm();
             _panel = new PropertiesPanel(app, Theme.Detect(app));
             _host.Controls.Add(_panel);
-            _host.Show();
-            _window.AddChild(_host.Handle.ToInt32());
+            // Owned by Inventor's main window before it is docked: an unowned form was not kept in a split under the Model
+            // browser across restarts (Inventor restored it at height 0 and moved it to a column of its own).
+            _host.Show(new InventorWindow(app.MainFrameHWND));
+            _window.AddChild(_host.Handle.ToInt64());
 
             _settle.Tick += OnSettled;
             _input = app.CommandManager.UserInputEvents;
