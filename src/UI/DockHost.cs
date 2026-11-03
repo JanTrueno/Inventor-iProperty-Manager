@@ -40,8 +40,9 @@ namespace IPropertyManager.UI
             _window.ShowVisibilityCheckBox = true;   // listed under View > User Interface like Inventor's own panels
             _window.SetMinimumSize(220, 200);
             _window.AddChild(_host.Handle.ToInt32());
-            // Dock on the right only the very first time; after that Inventor restores wherever the user put it.
-            if (FirstRun()) _window.DockingState = DockingStateEnum.kDockRight;
+            // Bottom left, under the Model browser, only the very first time; after that Inventor restores wherever the
+            // user put it.
+            if (FirstRun()) DockUnderBrowser(app);
             else _window.DockingState = DockingStateEnum.kDockLastKnown;
 
             _panel = new PropertiesPanel(app, Theme.Detect(app));
@@ -87,6 +88,25 @@ namespace IPropertyManager.UI
             // that. A leftover from an unload in the add-in manager is removed by Init on the next load.
             try { _host?.Dispose(); } catch { }
             _window = null; _host = null; _panel = null; _input = null; _appEvents = null; _app = null;
+        }
+
+        private static void DockUnderBrowser(Inventor.Application app)
+        {
+            try
+            {
+                foreach (DockableWindow w in app.UserInterfaceManager.DockableWindows)
+                {
+                    string name = "", title = "";
+                    try { name = w.InternalName; title = w.Title; } catch { }
+                    if (string.Equals(name, "model", StringComparison.OrdinalIgnoreCase) || string.Equals(title, "Model", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _window.SetDockingState(DockingStateEnum.kDockBottom, w);
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex) { Log.Write("Docking under the Model browser failed: " + ex.Message); }
+            _window.DockingState = DockingStateEnum.kDockLeft;
         }
 
         /// <summary>True once per user: leaves a marker so later starts keep the user's placement.</summary>
