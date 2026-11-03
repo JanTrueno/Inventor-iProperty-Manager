@@ -1,0 +1,15 @@
+<Addin Type="Standard">
+  <ClassId>{7c2e9a41-5b8d-4f36-a1e0-93d6b4c8f215}</ClassId>
+  <ClientId>{7c2e9a41-5b8d-4f36-a1e0-93d6b4c8f215}</ClientId>
+  <DisplayName>iProperty Manager</DisplayName>
+  <Description>Dockable panel to view and edit iProperties and material of the active or selected documents.</Description>
+  <Assembly>IPropertyManager.dll</Assembly>
+  <LoadOnStartUp>1</LoadOnStartUp>
+  <UserUnloadable>1</UserUnloadable>
+  <Hidden>0</Hidden>
+  <SupportedSoftwareVersionGreaterThan>28..</SupportedSoftwareVersionGreaterThan>
+  <SupportedSoftwareVersionLessThan>30..</SupportedSoftwareVersionLessThan>
+  <DataVersion>1</DataVersion>
+  <UserInterfaceVersion>1</UserInterfaceVersion>
+  <LoadBehavior>0</LoadBehavior>
+</Addin>
