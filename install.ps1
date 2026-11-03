@@ -27,4 +27,4 @@ foreach ($f in 'IPropertyManager.dll', 'IPropertyManager.pdb', 'IPropertyManager
     Copy-Item (Join-Path $out $f) $target -Force
 }
 "Installed to $bundle"
-"Start Inventor 2025; open the panel from Tools > iProperties > iProperty Panel."
+"Start Inventor 2025; turn the panel on with View > User Interface > iProperties."

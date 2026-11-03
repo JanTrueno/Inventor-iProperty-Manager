@@ -1,4 +1,4 @@
-Third-party material used by this add-in
+﻿Third-party material used by this add-in
 ========================================
 
 Autodesk Weave icons
@@ -9,8 +9,3 @@ licensed under the Apache License, Version 2.0: https://www.apache.org/licenses/
 
 The SVG sources were rendered to PNG at 16, 24 and 32 px in a light and a dark colour (src/Assets/Weave). No other
 change was made to the artwork.
-
-Inventor interface icons
-------------------------
-The ribbon button uses the icon of Inventor's own iProperties command, read at run time from the running Inventor.
-Nothing from Inventor is copied into or shipped with this add-in.

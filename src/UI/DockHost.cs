@@ -34,6 +34,7 @@ namespace IPropertyManager.UI
         private static PropertiesPanel _panel;
         private static UserInputEvents _input;
         private static ApplicationEvents _appEvents;
+        private static DockableWindowsEvents _windowEvents;
         private static readonly Timer _settle = new Timer { Interval = SettleMs };
         private static bool _selectionDue, _valuesDue;
 
@@ -62,30 +63,53 @@ namespace IPropertyManager.UI
             _appEvents.OnActivateDocument += OnActivateDocument;
             _appEvents.OnCloseDocument += OnCloseDocument;
             _appEvents.OnDocumentChange += OnDocumentChange;
+            _windowEvents = app.UserInterfaceManager.DockableWindows.Events;
+            _windowEvents.OnShow += OnWindowShow;
+            _windowEvents.OnHide += OnWindowHide;
 
             Schedule(selection: true);
         }
 
-        public static bool Visible
+        private static bool Visible
         {
             get { try { return _window?.Visible == true; } catch { return false; } }
-            set
-            {
-                if (_window == null) return;
-                _window.Visible = value;
-                WantOpen = value;
-                if (value) Schedule(selection: true);
-            }
         }
 
         // ----- open at start -------------------------------------------------------------------------------------
         // Inventor restores the window's place but brings it back hidden, so whether the user wants it open is kept
-        // here: the ribbon button sets it, and the first document of a session opens the panel unless it was turned off.
+        // here: turning it off or on (View > User Interface, or its close button) while a document is open is
+        // remembered, and the first document of a session opens the panel unless it was turned off.
+
+        private static void OnWindowShow(DockableWindow window, EventTimingEnum timing, NameValueMap context, out HandlingCodeEnum handling)
+        {
+            handling = HandlingCodeEnum.kEventNotHandled;
+            if (timing != EventTimingEnum.kAfter || !IsOurs(window)) return;
+            if (_shownThisSession && HasDocument()) WantOpen = true;
+            Schedule(selection: true);
+        }
+
+        private static void OnWindowHide(DockableWindow window, EventTimingEnum timing, NameValueMap context, out HandlingCodeEnum handling)
+        {
+            handling = HandlingCodeEnum.kEventNotHandled;
+            // Inventor also hides it on the start screen and when the last document closes; only a hide with a document
+            // open, outside a close, is the user's choice.
+            if (timing == EventTimingEnum.kAfter && IsOurs(window) && _shownThisSession && !_closing && HasDocument()) WantOpen = false;
+        }
+
+        private static bool IsOurs(DockableWindow window)
+        {
+            try { return window?.InternalName == WindowName; } catch { return false; }
+        }
+
+        private static bool HasDocument()
+        {
+            try { return _app?.ActiveDocument != null; } catch { return false; }
+        }
 
         private static string OpenFlagPath => System.IO.Path.Combine(
             System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "IPropertyManager", "panel-closed");
 
-        private static bool _shownThisSession;
+        private static bool _shownThisSession, _closing;
 
         private static bool WantOpen
         {
@@ -127,9 +151,11 @@ namespace IPropertyManager.UI
                 _appEvents.OnActivateDocument -= OnActivateDocument;
                 _appEvents.OnCloseDocument -= OnCloseDocument;
                 _appEvents.OnDocumentChange -= OnDocumentChange;
+                _windowEvents.OnShow -= OnWindowShow;
+                _windowEvents.OnHide -= OnWindowHide;
             }
             catch { }
-            _input = null; _appEvents = null; _app = null;
+            _input = null; _appEvents = null; _windowEvents = null; _app = null;
         }
 
         // ----- events -------------------------------------------------------------------------------------------
@@ -151,6 +177,7 @@ namespace IPropertyManager.UI
         private static void OnCloseDocument(_Document doc, string fullName, EventTimingEnum timing, NameValueMap context, out HandlingCodeEnum handling)
         {
             handling = HandlingCodeEnum.kEventNotHandled;
+            _closing = timing == EventTimingEnum.kBefore;
             if (timing != EventTimingEnum.kAfter) return;
             bool none;
             try { none = _app.Documents.VisibleDocuments.Count == 0; } catch { none = true; }

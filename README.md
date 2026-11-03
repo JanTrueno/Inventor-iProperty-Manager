@@ -1,4 +1,4 @@
-# iProperty Manager for Inventor
+﻿# iProperty Manager for Inventor
 
 A docked **iProperties** panel for Autodesk Inventor 2025, styled like Inventor's own property panels.
 
@@ -9,8 +9,8 @@ A docked **iProperties** panel for Autodesk Inventor 2025, styled like Inventor'
 - The buttons next to the name copy it, or open its folder in Explorer.
 - **Save** (or Enter / Ctrl+S) writes everything as one undo step; **Revert** (or Esc) discards the edits. Read-only documents (library, Content Center) are skipped.
 
-Open it from **Tools > iProperties > iProperty Panel**, or **View > User Interface**. It opens with the first document of a
-session unless it was turned off with that button. Inventor itself remembers where it is docked; a split under the Model
+Turn it on or off with **View > User Interface > iProperties** (there is no ribbon button). It opens with the first
+document of a session unless it was turned off. Inventor itself remembers where it is docked; a split under the Model
 browser is not always kept across restarts, the sides and tabs are.
 
 ## Build and install
