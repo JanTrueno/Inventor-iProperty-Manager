@@ -7,6 +7,8 @@ parts, assemblies and drawings.
 **Change materials straight from the drawing**: click a view or an edge of a part in an IDW, pick the new material in the
 panel and save. The part gets the new material and the parts list updates, without opening the part.
 
+![The iProperties panel showing a part selected in a drawing, with its material](docs/images/drawing-material.png)
+
 ## Features
 
 - **Always at hand**: shows the iProperties of the active part, assembly or drawing (IDW/DWG), or of the components you select.
