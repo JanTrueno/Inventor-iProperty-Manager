@@ -40,10 +40,12 @@ namespace IPropertyManager.UI
             _window.ShowVisibilityCheckBox = true;   // listed under View > User Interface like Inventor's own panels
             _window.SetMinimumSize(220, 200);
             _window.AddChild(_host.Handle.ToInt32());
-            // Bottom left, under the Model browser, only the very first time; after that Inventor restores wherever the
-            // user put it.
-            if (FirstRun()) DockUnderBrowser(app);
-            else _window.DockingState = DockingStateEnum.kDockLastKnown;
+            // Inventor does not remember where an add-in's window was, and at start-up the Model browser it may be docked
+            // against does not exist yet. So the placement saved on exit (or, the first time, bottom left under the Model
+            // browser) is applied a moment later, retrying until the browser is there.
+            _window.DockingState = DockingStateEnum.kDockLeft;
+            _place.Tick += OnPlace;
+            _place.Start();
 
             _panel = new PropertiesPanel(app, Theme.Detect(app));
             _host.Controls.Add(_panel);
@@ -84,44 +86,38 @@ namespace IPropertyManager.UI
                 _appEvents.OnDocumentChange -= OnDocumentChange;
             }
             catch { }
-            // The window is not deleted: Inventor saves its position and size on exit, and deleting it would discard
-            // that. A leftover from an unload in the add-in manager is removed by Init on the next load.
+            _place.Stop();
+            _place.Tick -= OnPlace;
+            if (_window != null && _placed) Placement.Save(_window);
+            try { _window?.Delete(); } catch { }
             try { _host?.Dispose(); } catch { }
             _window = null; _host = null; _panel = null; _input = null; _appEvents = null; _app = null;
         }
 
-        private static void DockUnderBrowser(Inventor.Application app)
-        {
-            try
-            {
-                foreach (DockableWindow w in app.UserInterfaceManager.DockableWindows)
-                {
-                    string name = "", title = "";
-                    try { name = w.InternalName; title = w.Title; } catch { }
-                    if (string.Equals(name, "model", StringComparison.OrdinalIgnoreCase) || string.Equals(title, "Model", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _window.SetDockingState(DockingStateEnum.kDockBottom, w);
-                        return;
-                    }
-                }
-            }
-            catch (Exception ex) { Log.Write("Docking under the Model browser failed: " + ex.Message); }
-            _window.DockingState = DockingStateEnum.kDockLeft;
-        }
+        // ----- placement ----------------------------------------------------------------------------------------
 
-        /// <summary>True once per user: leaves a marker so later starts keep the user's placement.</summary>
-        private static bool FirstRun()
+        private static readonly Timer _place = new Timer { Interval = 1000 };
+        private static int _placeTries;
+        private static bool _placed;
+
+        private static void OnPlace(object sender, EventArgs e)
         {
-            string marker = System.IO.Path.Combine(
-                System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "IPropertyManager", "placed");
+            if (_window == null) { _place.Stop(); return; }
+            Placement saved = Placement.Load();
+            DockableWindow target = Placement.Find(_app, saved != null ? saved.DockedTo : Placement.BrowserName(_app));
+            bool needsTarget = saved == null || !string.IsNullOrEmpty(saved.DockedTo);
+            if (needsTarget && target == null && ++_placeTries < 20) return;   // the browser is not there yet
+
+            _place.Stop();
             try
             {
-                if (System.IO.File.Exists(marker)) return false;
-                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(marker));
-                System.IO.File.WriteAllText(marker, "");
+                if (saved != null) saved.Apply(_window, target);
+                else if (target != null) _window.SetDockingState(DockingStateEnum.kDockBottom, target);
+                Log.Write("Placed panel: " + (saved != null ? "saved " + saved.State : "default") +
+                          (target != null ? " against " + target.InternalName : " (no window to dock against)"));
             }
-            catch { /* worst case it docks right again */ }
-            return true;
+            catch (Exception ex) { Log.Write("Placing the panel failed: " + ex.Message); }
+            _placed = true;
         }
 
         // ----- events -------------------------------------------------------------------------------------------
