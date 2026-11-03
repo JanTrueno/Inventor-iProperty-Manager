@@ -34,6 +34,7 @@ namespace IPropertyManager.UI
         private readonly Dictionary<FieldSpec, Control> _inputs = new Dictionary<FieldSpec, Control>();
         private IconButton _copy, _add;
         private ThemedCombo _material;
+        private FieldBox _mass;
         private InventorButton _save, _revert;
 
         private List<_Document> _docs = new List<_Document>();
@@ -137,6 +138,12 @@ namespace IPropertyManager.UI
 
         private void ShowMaterial()
         {
+            string mass = null;
+            try { mass = _docs.Count > 0 ? MassInfo.Total(_app, _docs) : null; }
+            catch (Exception ex) { Log.Write("Mass failed: " + ex.Message); }
+            _mass.Text = mass ?? "";
+            _mass.Hint = mass == null ? "n/a" : "";
+
             List<PartDocument> parts = _docs.OfType<PartDocument>().ToList();
             bool any = parts.Count > 0;
             _material.Visible = any;
@@ -357,6 +364,7 @@ namespace IPropertyManager.UI
             _copy = new IconButton(_theme, "Copy the name", DrawCopy) { Size = new Size(26, 22) };
             _add = new IconButton(_theme, "Add an iProperty", DrawPlus) { Size = new Size(26, 22) };
             _material = new ThemedCombo(_theme);
+            _mass = new FieldBox(_theme) { ReadOnly = true };
             _save = new InventorButton(_theme, "Save", true);
             _revert = new InventorButton(_theme, "Revert", false);
 
@@ -466,6 +474,7 @@ namespace IPropertyManager.UI
             int r = t.RowCount++;
             t.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             t.Controls.Add(_materialNote, 1, r);
+            Row(t, "Mass", _mass);
             return t;
         }
 
