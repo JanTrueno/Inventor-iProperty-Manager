@@ -25,8 +25,7 @@ namespace IPropertyManager.UI
                 StartPosition = FormStartPosition.Manual;
                 Location = new System.Drawing.Point(-32000, -32000);   // never flashes on screen before it is adopted
                 MinimumSize = new System.Drawing.Size(MinWidth, MinHeight);
-                Size = MinimumSize;
-            }
+                Size = MinimumSize;            }
         }
 
         private static Inventor.Application _app;
