@@ -1,4 +1,4 @@
-<Addin Type="Standard">
+﻿<Addin Type="Standard">
   <ClassId>{7c2e9a41-5b8d-4f36-a1e0-93d6b4c8f215}</ClassId>
   <ClientId>{7c2e9a41-5b8d-4f36-a1e0-93d6b4c8f215}</ClientId>
   <DisplayName>iProperty Manager</DisplayName>
@@ -11,5 +11,5 @@
   <SupportedSoftwareVersionLessThan>30..</SupportedSoftwareVersionLessThan>
   <DataVersion>1</DataVersion>
   <UserInterfaceVersion>1</UserInterfaceVersion>
-  <LoadBehavior>0</LoadBehavior>
+  <LoadBehavior>1</LoadBehavior>
 </Addin>

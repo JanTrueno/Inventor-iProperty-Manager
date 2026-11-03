@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 using Inventor;
 using IPropertyManager.Core;
@@ -12,17 +12,26 @@ namespace IPropertyManager.UI
     /// </summary>
     internal static class DockHost
     {
-        private const string WindowName = "IPropertyManager.DockableWindow";
+        private const string WindowName = "IPropertyManager.iProperties";   // renamed once to drop a damaged saved layout
         private const int SettleMs = 150;
+        private const int MinWidth = 200, MinHeight = 160;
 
-        private sealed class HostControl : UserControl
+        private sealed class HostForm : Form
         {
-            public HostControl() { Dock = DockStyle.Fill; }
+            public HostForm()
+            {
+                FormBorderStyle = FormBorderStyle.None;
+                ShowInTaskbar = false;
+                StartPosition = FormStartPosition.Manual;
+                Location = new System.Drawing.Point(-32000, -32000);   // never flashes on screen before it is adopted
+                MinimumSize = new System.Drawing.Size(MinWidth, MinHeight);
+                Size = MinimumSize;
+            }
         }
 
         private static Inventor.Application _app;
         private static DockableWindow _window;
-        private static HostControl _host;
+        private static HostForm _host;
         private static PropertiesPanel _panel;
         private static UserInputEvents _input;
         private static ApplicationEvents _appEvents;
@@ -32,19 +41,23 @@ namespace IPropertyManager.UI
         public static void Init(Inventor.Application app, string clientGuid)
         {
             _app = app;
-            try { app.UserInterfaceManager.DockableWindows[WindowName].Delete(); } catch { /* none left from an unload */ }
-
-            // Inventor itself remembers where the window was (side, size, place in the column) as long as the window is
-            // still intact when Inventor closes and asks for its last-known state, set before the content is attached.
-            // So the placement is left entirely to Inventor, and Shutdown neither deletes the window nor destroys its content.
-            _window = app.UserInterfaceManager.DockableWindows.Add(clientGuid, WindowName, "iProperties");
+            // Placement is left entirely to Inventor's own layout, which restores the window per environment by itself.
+            // Setting any docking state here (even kDockLastKnown) overrode that layout when a document was activated, so
+            // none is set. A window still there from an unload in this session is reused, not deleted, and Shutdown
+            // leaves it intact so Inventor can save where it was.
+            try { _window = app.UserInterfaceManager.DockableWindows[WindowName]; }
+            catch { _window = app.UserInterfaceManager.DockableWindows.Add(clientGuid, WindowName, "iProperties"); }
             _window.ShowVisibilityCheckBox = true;   // listed under View > User Interface like Inventor's own panels
-            _window.DockingState = DockingStateEnum.kDockLastKnown;
+            _window.DisabledDockingStates = DockingStateEnum.kDockTop | DockingStateEnum.kDockBottom;   // a side column only
+            // Without a minimum, Inventor restored a split under the Model browser at height 0 (the window is hidden on
+            // the start screen) and then turned the empty pane into a column of its own.
+            _window.SetMinimumSize(MinHeight, MinWidth);
 
-            _host = new HostControl();
-            _ = _host.Handle; // make sure the native window exists before Inventor adopts it
+            // The content is a borderless top-level form that Inventor re-parents into the window.
+            _host = new HostForm();
             _panel = new PropertiesPanel(app, Theme.Detect(app));
             _host.Controls.Add(_panel);
+            _host.Show();
             _window.AddChild(_host.Handle.ToInt32());
 
             _settle.Tick += OnSettled;
@@ -66,8 +79,43 @@ namespace IPropertyManager.UI
             {
                 if (_window == null) return;
                 _window.Visible = value;
+                WantOpen = value;
                 if (value) Schedule(selection: true);
             }
+        }
+
+        // ----- open at start -------------------------------------------------------------------------------------
+        // Inventor restores the window's place but brings it back hidden, so whether the user wants it open is kept
+        // here: the ribbon button sets it, and the first document of a session opens the panel unless it was turned off.
+
+        private static string OpenFlagPath => System.IO.Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "IPropertyManager", "panel-closed");
+
+        private static bool _shownThisSession;
+
+        private static bool WantOpen
+        {
+            get { try { return !System.IO.File.Exists(OpenFlagPath); } catch { return true; } }
+            set
+            {
+                try
+                {
+                    if (value) System.IO.File.Delete(OpenFlagPath);
+                    else
+                    {
+                        System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(OpenFlagPath));
+                        System.IO.File.WriteAllText(OpenFlagPath, "");
+                    }
+                }
+                catch (Exception ex) { Log.Write("Remembering the panel state failed: " + ex.Message); }
+            }
+        }
+
+        private static void ShowOnFirstDocument()
+        {
+            if (_shownThisSession || _window == null) return;
+            _shownThisSession = true;
+            try { if (WantOpen && !_window.Visible) _window.Visible = true; } catch { }
         }
 
         /// <summary>
@@ -101,7 +149,9 @@ namespace IPropertyManager.UI
         private static void OnActivateDocument(_Document doc, EventTimingEnum timing, NameValueMap context, out HandlingCodeEnum handling)
         {
             handling = HandlingCodeEnum.kEventNotHandled;
-            if (timing == EventTimingEnum.kAfter) Schedule(selection: true);
+            if (timing != EventTimingEnum.kAfter) return;
+            ShowOnFirstDocument();
+            Schedule(selection: true);
         }
 
         private static void OnCloseDocument(_Document doc, string fullName, EventTimingEnum timing, NameValueMap context, out HandlingCodeEnum handling)
