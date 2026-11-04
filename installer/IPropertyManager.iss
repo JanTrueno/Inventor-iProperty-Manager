@@ -2,7 +2,7 @@
 ; Build with build-installer.ps1, which compiles the add-in first and passes the version.
 
 #ifndef AppVersion
-  #define AppVersion "1.0.1"
+  #define AppVersion "1.0.2"
 #endif
 #define BuildDir "..\bin\Release\net8.0-windows"
 
