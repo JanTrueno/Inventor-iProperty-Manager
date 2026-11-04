@@ -32,7 +32,7 @@ namespace IPropertyManager.UI
         private readonly Label _materialNote = new Label { AutoSize = true, Tag = "keep" };
         private readonly Label _status = new Label { AutoSize = false, Dock = DockStyle.Bottom, Height = 34, Padding = new Padding(8, 2, 8, 0), Tag = "keep", Visible = false };
         private readonly Dictionary<FieldSpec, Control> _inputs = new Dictionary<FieldSpec, Control>();
-        private IconButton _copy, _folder, _add;
+        private IconButton _copy, _open, _folder, _add;
         private ThemedCombo _material;
         private FieldBox _mass;
         private InventorButton _save, _revert;
@@ -382,6 +382,7 @@ namespace IPropertyManager.UI
         private void Build()
         {
             _copy = new IconButton(_theme, "Copy the name", DrawCopy) { Size = new Size(26, 22) };
+            _open = new IconButton(_theme, "Open in Inventor", DrawOpen) { Size = new Size(26, 22) };
             _folder = new IconButton(_theme, "Open the folder in Explorer", DrawFolder) { Size = new Size(26, 22) };
             _add = new IconButton(_theme, "Add an iProperty", DrawPlus) { Size = new Size(26, 22) };
             _material = new ThemedCombo(_theme);
@@ -441,18 +442,20 @@ namespace IPropertyManager.UI
 
         private Control SelectionTable()
         {
-            var t = new TableLayoutPanel { ColumnCount = 3, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            var t = new TableLayoutPanel { ColumnCount = 4, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
             _caption.Margin = new Padding(0, 2, 0, 0);
             _subCaption.Margin = new Padding(0, 0, 0, 2);
-            _copy.Margin = _folder.Margin = Padding.Empty;
+            _copy.Margin = _open.Margin = _folder.Margin = Padding.Empty;
             t.Controls.Add(_caption, 0, 0);
             t.Controls.Add(_copy, 1, 0);
-            t.Controls.Add(_folder, 2, 0);
+            t.Controls.Add(_open, 2, 0);
+            t.Controls.Add(_folder, 3, 0);
             t.Controls.Add(_subCaption, 0, 1);
-            t.SetColumnSpan(_subCaption, 3);
+            t.SetColumnSpan(_subCaption, 4);
             return t;
         }
 
@@ -549,6 +552,7 @@ namespace IPropertyManager.UI
                 if (text.Length == 0) return;
                 try { Clipboard.SetText(text); SetStatus("Copied.", false); } catch { /* clipboard busy */ }
             };
+            _open.Click += (s, e) => OpenInInventor();
             _folder.Click += (s, e) => OpenFolder();
             _save.Click += (s, e) => Save();
             _revert.Click += (s, e) => Revert();
@@ -573,6 +577,34 @@ namespace IPropertyManager.UI
             }
             try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\""); }
             catch (Exception ex) { SetStatus("Could not open Explorer: " + ex.Message, true); }
+        }
+
+        /// <summary>Opens the shown documents in their own Inventor windows (a component from a drawing or assembly).</summary>
+        private void OpenInInventor()
+        {
+            _Document active;
+            try { active = _app.ActiveDocument; } catch { active = null; }
+            var paths = new List<string>();
+            foreach (_Document d in _docs)
+            {
+                if (d == active) continue;   // already the one being worked on
+                try { if (!string.IsNullOrEmpty(d.FullFileName)) paths.Add(d.FullFileName); } catch { }
+            }
+            if (paths.Count == 0)
+            {
+                SetStatus(_docs.Count == 0 ? "No document shown." : "This is already the open document.", false);
+                return;
+            }
+            foreach (string path in paths)
+            {
+                try { _app.Documents.Open(path, true); }
+                catch (Exception ex)
+                {
+                    Log.Write("Opening " + path + " failed: " + ex.Message);
+                    SetStatus("Could not open " + System.IO.Path.GetFileName(path) + ": " + ex.Message, true);
+                    return;
+                }
+            }
         }
 
         private void UpdateButtons()
@@ -603,6 +635,22 @@ namespace IPropertyManager.UI
             {
                 g.DrawRectangle(pen, cx - 5, cy - 3, 8, 9);
                 g.DrawLines(pen, new[] { new PointF(cx - 2, cy - 3), new PointF(cx - 2, cy - 6), new PointF(cx + 6, cy - 6), new PointF(cx + 6, cy + 3), new PointF(cx + 3, cy + 3) });
+            }
+        }
+
+        // A window with an arrow out of its corner: open
+        private static void DrawOpen(Graphics g, Rectangle b, Color ink, Color accent)
+        {
+            float cx = b.X + b.Width / 2f, cy = b.Y + b.Height / 2f;
+            using (var pen = new Pen(ink, 1.2f))
+            {
+                g.DrawLines(pen, new[]
+                {
+                    new PointF(cx - 1, cy - 6), new PointF(cx - 6, cy - 6), new PointF(cx - 6, cy + 6),
+                    new PointF(cx + 6, cy + 6), new PointF(cx + 6, cy + 1)
+                });
+                g.DrawLine(pen, cx - 1, cy + 1, cx + 6, cy - 6);
+                g.DrawLines(pen, new[] { new PointF(cx + 2, cy - 6), new PointF(cx + 6, cy - 6), new PointF(cx + 6, cy - 2) });
             }
         }
 
