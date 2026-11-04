@@ -1,9 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Inventor" Name="iProperty Manager" Description="View and edit iProperties and material of the active or selected documents" AppVersion="1.0.0" FriendlyVersion="1.0.0" ProductType="Application" SupportedLocales="Enu" AppNameSpace="local.ipropertymanager" Author="Local" ProductCode="{3e81d6f2-4a95-4c07-b2d8-6f1a9e5c3b74}" UpgradeCode="{a94c2e17-8d3b-4f60-95e2-1b7d4c8a6f39}">
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AutodeskProduct="Inventor" Name="iProperty Manager" Description="View and edit iProperties and material of the active or selected documents" AppVersion="1.0.1" FriendlyVersion="1.0.1" ProductType="Application" SupportedLocales="Enu" AppNameSpace="local.ipropertymanager" Author="Local" ProductCode="{3e81d6f2-4a95-4c07-b2d8-6f1a9e5c3b74}" UpgradeCode="{a94c2e17-8d3b-4f60-95e2-1b7d4c8a6f39}">
   <CompanyDetails Name="Local" />
   <RuntimeRequirements />
   <Components Description="iProperty Manager for Inventor 2025">
     <RuntimeRequirements OS="Win64" Platform="Inventor" SeriesMin="Ir29" SeriesMax="Ir29" />
-    <ComponentEntry AppName="iProperty Manager" Version="1.0.0" ModuleName="./Contents/2025/IPropertyManager.Inventor.addin" AppDescription="iProperty Manager" />
+    <ComponentEntry AppName="iProperty Manager" Version="1.0.1" ModuleName="./Contents/2025/IPropertyManager.Inventor.addin" AppDescription="iProperty Manager" />
   </Components>
 </ApplicationPackage>
