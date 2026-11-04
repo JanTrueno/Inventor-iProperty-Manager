@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -382,7 +382,7 @@ namespace IPropertyManager.UI
         private void Build()
         {
             _copy = new IconButton(_theme, "Copy the name", DrawCopy) { Size = new Size(26, 22) };
-            _open = new IconButton(_theme, "Open in Inventor", DrawOpen) { Size = new Size(26, 22) };
+            _open = new IconButton(_theme, "Open", DrawOpen) { Size = new Size(26, 22) };
             _folder = new IconButton(_theme, "Open the folder in Explorer", DrawFolder) { Size = new Size(26, 22) };
             _add = new IconButton(_theme, "Add an iProperty", DrawPlus) { Size = new Size(26, 22) };
             _material = new ThemedCombo(_theme);
