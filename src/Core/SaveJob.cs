@@ -66,13 +66,25 @@ namespace IPropertyManager.Core
                 throw;
             }
 
-            // Only redraw: Document.Update rebuilds the whole document, which took 25 s in a large drawing. Parts lists
-            // and title blocks pick up the new iProperties by themselves, as with Inventor's own iProperties dialog.
+            // Not Document.Update: it rebuilds every view, which took 25 s in a large drawing. Only the parts lists show
+            // the iProperties and material, so those are updated, and the view redrawn.
+            if (app.ActiveDocument is DrawingDocument drawing)
+                using (Log.Timed("Save: update parts lists")) UpdatePartsLists(drawing);
             using (Log.Timed("Save: redraw"))
             {
                 try { app.ActiveView?.Update(); } catch { /* the view refreshes on its own */ }
             }
             return outcome;
+        }
+
+        private static void UpdatePartsLists(DrawingDocument drawing)
+        {
+            foreach (Sheet sheet in drawing.Sheets)
+                foreach (PartsList list in sheet.PartsLists)
+                {
+                    try { list.Update(); }
+                    catch (Exception ex) { Log.Write("Updating a parts list on " + sheet.Name + " failed: " + ex.Message); }
+                }
         }
     }
 }
