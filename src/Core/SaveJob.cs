@@ -28,8 +28,11 @@ namespace IPropertyManager.Core
         {
             var outcome = new Outcome();
             Transaction tx = null;
-            try { tx = app.TransactionManager.StartGlobalTransaction(app.ActiveDocument, "Edit iProperties"); }
-            catch (Exception ex) { Log.Write("Could not start a transaction: " + ex.Message); }
+            using (Log.Timed("Save: start transaction"))
+            {
+                try { tx = app.TransactionManager.StartGlobalTransaction(app.ActiveDocument, "Edit iProperties"); }
+                catch (Exception ex) { Log.Write("Could not start a transaction: " + ex.Message); }
+            }
 
             try
             {
@@ -41,8 +44,11 @@ namespace IPropertyManager.Core
 
                     try
                     {
-                        foreach (var e in edits) PropertyIO.Write(doc, e.Key, e.Value);
-                        if (material != null && doc is PartDocument part) Materials.Apply(app, part, material);
+                        string name = doc.DisplayName;
+                        foreach (var e in edits)
+                            using (Log.Timed("Save: write " + e.Key.Name + " to " + name)) PropertyIO.Write(doc, e.Key, e.Value);
+                        if (material != null && doc is PartDocument part)
+                            using (Log.Timed("Save: material of " + name)) Materials.Apply(app, part, material);
                         outcome.Changed++;
                     }
                     catch (Exception ex)
@@ -52,7 +58,7 @@ namespace IPropertyManager.Core
                         Log.Write("Saving " + doc.DisplayName + " failed: " + ex);
                     }
                 }
-                tx?.End();
+                using (Log.Timed("Save: end transaction")) tx?.End();
             }
             catch
             {
@@ -60,7 +66,10 @@ namespace IPropertyManager.Core
                 throw;
             }
 
-            try { app.ActiveDocument.Update(); } catch { /* the view refreshes on its own */ }
+            using (Log.Timed("Save: update " + app.ActiveDocument.DisplayName))
+            {
+                try { app.ActiveDocument.Update(); } catch { /* the view refreshes on its own */ }
+            }
             return outcome;
         }
     }

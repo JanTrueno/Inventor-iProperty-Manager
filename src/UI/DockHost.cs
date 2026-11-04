@@ -233,8 +233,11 @@ namespace IPropertyManager.UI
                 string before = _panel.ThemeName;
                 FollowTheme();
                 if (_panel.ThemeName != before) selection = true;   // a new panel shows nothing yet
-                if (selection) _panel.FollowSelection();
-                else if (values) _panel.ReloadValues();
+                using (Log.Timed(selection ? "Refresh: follow selection" : "Refresh: reload after a document change"))
+                {
+                    if (selection) _panel.FollowSelection();
+                    else if (values) _panel.ReloadValues();
+                }
             }
             catch (Exception ex) { Log.Write("Refreshing the panel failed: " + ex); }
         }

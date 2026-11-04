@@ -108,7 +108,7 @@ namespace IPropertyManager.UI
                     _subCaption.Text = string.Join(", ", docs.Take(3).Select(SafeName)) + (docs.Count > 3 ? ", ..." : "");
                 }
 
-                foreach (var kv in _inputs) ShowField(kv.Key, kv.Value);
+                using (Log.Timed("Show: iProperties")) foreach (var kv in _inputs) ShowField(kv.Key, kv.Value);
                 ShowMaterial();
             }
             finally { _loading = false; }
@@ -142,8 +142,11 @@ namespace IPropertyManager.UI
         private void ShowMaterial()
         {
             string mass = null;
-            try { mass = _docs.Count > 0 ? MassInfo.Total(_app, _docs) : null; }
-            catch (Exception ex) { Log.Write("Mass failed: " + ex.Message); }
+            using (Log.Timed("Show: mass"))
+            {
+                try { mass = _docs.Count > 0 ? MassInfo.Total(_app, _docs) : null; }
+                catch (Exception ex) { Log.Write("Mass failed: " + ex.Message); }
+            }
             _mass.Text = mass ?? "";
             _mass.Hint = mass == null ? "n/a" : "";
 
@@ -155,9 +158,12 @@ namespace IPropertyManager.UI
             _materialNote.Visible = _materialNote.Text.Length > 0;
             if (!any) return;
 
-            string[] current = parts.Select(Materials.Current).Distinct().ToArray();
-            string shared = current.Length == 1 ? current[0] : null;
-            _material.SetItems(Materials.Available(_app, parts), shared, shared == null ? MixedHint : null);
+            using (Log.Timed("Show: materials"))
+            {
+                string[] current = parts.Select(Materials.Current).Distinct().ToArray();
+                string shared = current.Length == 1 ? current[0] : null;
+                _material.SetItems(Materials.Available(_app, parts), shared, shared == null ? MixedHint : null);
+            }
         }
 
         private static string SafeName(_Document d)
@@ -203,7 +209,7 @@ namespace IPropertyManager.UI
             try
             {
                 Cursor = Cursors.WaitCursor;
-                outcome = SaveJob.Run(_app, _docs, edits, material);
+                using (Log.Timed("Save: total for " + _docs.Count + " document(s)", 0)) outcome = SaveJob.Run(_app, _docs, edits, material);
             }
             catch (Exception ex)
             {
@@ -215,7 +221,7 @@ namespace IPropertyManager.UI
 
             _dirty.Clear();
             _materialDirty = false;
-            Show(_docs, _docs.Count > 1);
+            using (Log.Timed("Save: show the saved values", 0)) Show(_docs, _docs.Count > 1);
             SetStatus(outcome.Summary(), outcome.Failed > 0);
         }
 
