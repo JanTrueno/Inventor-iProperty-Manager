@@ -32,9 +32,12 @@ namespace IPropertyManager.UI
         private readonly Label _materialNote = new Label { AutoSize = true, Tag = "keep" };
         private readonly Label _status = new Label { AutoSize = false, Dock = DockStyle.Bottom, Height = 34, Padding = new Padding(8, 2, 8, 0), Tag = "keep", Visible = false };
         private readonly Dictionary<FieldSpec, Control> _inputs = new Dictionary<FieldSpec, Control>();
-        private IconButton _copy, _open, _folder, _add;
+        private IconButton _copy, _open, _folder, _add, _scaleDown, _scaleUp;
         private ThemedCombo _material;
-        private FieldBox _mass;
+        private FieldBox _mass, _scale;
+        private SectionHeader _viewHeader;
+        private Control _viewBody;
+        private List<DrawingView> _views = new List<DrawingView>();
         private InventorButton _save, _revert;
 
         private List<_Document> _docs = new List<_Document>();
@@ -68,6 +71,7 @@ namespace IPropertyManager.UI
             List<_Document> docs = Targets.Resolve(_app, out bool fromSelection);
             if (HasEdits)
             {
+                ShowViews();   // the view scale does not touch the edits, so it follows the selection anyway
                 if (!SameDocs(docs, _docs)) SetStatus("Unsaved changes. Save or Revert to follow the selection.", false);
                 return;
             }
@@ -110,6 +114,7 @@ namespace IPropertyManager.UI
 
                 using (Log.Timed("Show: iProperties")) foreach (var kv in _inputs) ShowField(kv.Key, kv.Value);
                 ShowMaterial();
+                ShowViews();
             }
             finally { _loading = false; }
 
@@ -164,6 +169,36 @@ namespace IPropertyManager.UI
                 string shared = current.Length == 1 ? current[0] : null;
                 _material.SetItems(Materials.Available(_app, parts), shared, shared == null ? MixedHint : null);
             }
+        }
+
+        /// <summary>The View section is there only while drawing views (or their edges) are selected.</summary>
+        private void ShowViews()
+        {
+            _views = ViewScale.Selected(_app);
+            bool any = _views.Count > 0;
+            _viewHeader.Visible = any;
+            _viewBody.Visible = any && _viewHeader.Open;
+            if (!any) return;
+            string shown = ViewScale.Shown(_views);
+            _scale.Text = shown ?? "";
+            _scale.Hint = shown == null ? MixedHint : "";
+        }
+
+        private void StepScale(int direction)
+        {
+            if (_views.Count == 0) return;
+            try
+            {
+                Cursor = Cursors.WaitCursor;
+                ViewScale.Step(_app, _views, direction);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Changing the view scale failed: " + ex);
+                SetStatus("Changing the scale failed: " + ex.Message, true);
+            }
+            finally { Cursor = Cursors.Default; }
+            ShowViews();
         }
 
         private static string SafeName(_Document d)
@@ -287,6 +322,7 @@ namespace IPropertyManager.UI
             _loading = true;
             foreach (var kv in _inputs) ShowField(kv.Key, kv.Value);
             ShowMaterial();
+            ShowViews();
             foreach (var kv in keep)
             {
                 if (_inputs[kv.Key] is ThemedCombo combo) combo.SelectedItem = kv.Value;
@@ -387,6 +423,9 @@ namespace IPropertyManager.UI
             _add = new IconButton(_theme, "Add an iProperty", DrawPlus) { Size = new Size(26, 22) };
             _material = new ThemedCombo(_theme);
             _mass = new FieldBox(_theme) { ReadOnly = true };
+            _scale = new FieldBox(_theme) { ReadOnly = true };
+            _scaleDown = new IconButton(_theme, "Scale down", DrawMinus) { Size = new Size(26, 22) };
+            _scaleUp = new IconButton(_theme, "Scale up", DrawPlus) { Size = new Size(26, 22) };
             _save = new InventorButton(_theme, "Save", true);
             _revert = new InventorButton(_theme, "Revert", false);
 
@@ -395,6 +434,9 @@ namespace IPropertyManager.UI
             AddSection(stack, "Selection", SelectionTable());
             AddSection(stack, "iProperties", PropertiesTable());
             AddSection(stack, "Material", MaterialTable());
+            _viewBody = ViewTable();
+            _viewHeader = AddSection(stack, "View", _viewBody);
+            _viewHeader.Visible = _viewBody.Visible = false;   // shown when a drawing view is selected
 
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             scroll.Controls.Add(stack);
@@ -418,7 +460,7 @@ namespace IPropertyManager.UI
             UpdateButtons();
         }
 
-        private void AddSection(TableLayoutPanel stack, string title, Control body)
+        private SectionHeader AddSection(TableLayoutPanel stack, string title, Control body)
         {
             var header = new SectionHeader(_theme, title, true) { Font = Font, Dock = DockStyle.Fill, Margin = Padding.Empty };
             body.Dock = DockStyle.Fill;
@@ -430,6 +472,7 @@ namespace IPropertyManager.UI
             r = stack.RowCount++;
             stack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             stack.Controls.Add(body, 0, r);
+            return header;
         }
 
         private static TableLayoutPanel Table()
@@ -507,6 +550,24 @@ namespace IPropertyManager.UI
             return t;
         }
 
+        // Scale  [-] 1 : 20 [+]
+        private Control ViewTable()
+        {
+            var t = Table();
+            var stepper = new TableLayoutPanel { ColumnCount = 3, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            stepper.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
+            stepper.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            stepper.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
+            _scaleDown.Margin = _scaleUp.Margin = Padding.Empty;
+            _scale.Margin = new Padding(2, 0, 2, 0);
+            _scale.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            stepper.Controls.Add(_scaleDown, 0, 0);
+            stepper.Controls.Add(_scale, 1, 0);
+            stepper.Controls.Add(_scaleUp, 2, 0);
+            Row(t, "Scale", stepper);
+            return t;
+        }
+
         private Label Row(TableLayoutPanel t, string label, Control c)
         {
             int r = t.RowCount++;
@@ -553,6 +614,8 @@ namespace IPropertyManager.UI
                 try { Clipboard.SetText(text); SetStatus("Copied.", false); } catch { /* clipboard busy */ }
             };
             _open.Click += (s, e) => OpenInInventor();
+            _scaleDown.Click += (s, e) => StepScale(-1);
+            _scaleUp.Click += (s, e) => StepScale(1);
             _folder.Click += (s, e) => OpenFolder();
             _save.Click += (s, e) => Save();
             _revert.Click += (s, e) => Revert();
@@ -666,6 +729,12 @@ namespace IPropertyManager.UI
                 });
                 g.DrawLine(pen, cx - 7, cy - 1, cx + 7, cy - 1);
             }
+        }
+
+        private static void DrawMinus(Graphics g, Rectangle b, Color ink, Color accent)
+        {
+            float cx = b.X + b.Width / 2f, cy = b.Y + b.Height / 2f;
+            using (var pen = new Pen(ink, 1.6f)) g.DrawLine(pen, cx - 6, cy, cx + 6, cy);
         }
 
         private static void DrawPlus(Graphics g, Rectangle b, Color ink, Color accent)
