@@ -16,7 +16,10 @@ panel and save. The part gets the new material and the parts list updates, witho
 - **Several at once**: select more components and edit them together. Shared values are shown, and differing ones show *(multiple values)* and are left alone unless you type over them.
 - **Your own rows**: **+** adds a row from the Summary, Project or Status iProperties, grouped like Inventor's iProperties dialog, or any custom name. Custom properties are created when you save. Right-click a row label to move it or remove it from the panel.
 - **Material and mass**: change the material of the selected parts from the active material library, also from a drawing, so there is no need to open each part to change it. The mass is shown next to it (the total when several are selected).
-- **View scale**: in a drawing, select a view and use **−** / **+** to step its scale, or type one (`1:20`, `2:1` or just `20`). Views that follow their base view stay in step. Click the empty sheet to scale all views on it at once.
+- **Drawing tools**: a Drawing section shows while an IDW is active.
+  - **Sheet name**: rename every sheet after an iProperty of the model on it, for example its Part Number.
+  - **Sheet number**: write 001, 002, 003 … in sheet order into an iProperty of the model on each sheet.
+  - **Scale**: select a view and use **−** / **+** to step its scale, or type one (`1:20`, `2:1` or just `20`). Views that follow their base view stay in step. Click the empty sheet to scale all views on it at once.
 - **Quick actions**: copy the file name, open the selected component in Inventor, or open its folder in Explorer.
 - **One undo step**: **Save** writes all changes to all shown documents as a single undo. **Enter** or **Tab** in a field also saves, and Tab then moves on to the next field. **Revert** or **Esc** discards the edits. Read-only documents (library, Content Center) are skipped.
 
