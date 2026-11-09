@@ -28,6 +28,38 @@ namespace IPropertyManager.Core
         }
     }
 
+    /// <summary>The iProperties chosen in the Drawing section, kept in %APPDATA%\IPropertyManager\drawing.json.</summary>
+    internal sealed class DrawingChoices
+    {
+        public string SheetName { get; set; } = "Part Number";
+        public string SheetNumber { get; set; }
+
+        private static readonly JsonSerializerOptions Json = new JsonSerializerOptions { WriteIndented = true, PropertyNameCaseInsensitive = true };
+
+        private static string FilePath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "IPropertyManager", "drawing.json");
+
+        public static DrawingChoices Load()
+        {
+            try
+            {
+                if (File.Exists(FilePath)) return JsonSerializer.Deserialize<DrawingChoices>(File.ReadAllText(FilePath), Json) ?? new DrawingChoices();
+            }
+            catch (Exception ex) { Log.Write("Reading " + FilePath + " failed: " + ex.Message); }
+            return new DrawingChoices();
+        }
+
+        public void Save()
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(FilePath));
+                File.WriteAllText(FilePath, JsonSerializer.Serialize(this, Json));
+            }
+            catch (Exception ex) { Log.Write("Writing " + FilePath + " failed: " + ex.Message); }
+        }
+    }
+
     /// <summary>
     /// The rows the user added in the panel, remembered between sessions in %APPDATA%\IPropertyManager\fields.json.
     /// There is no settings dialog; the panel adds and removes rows itself.

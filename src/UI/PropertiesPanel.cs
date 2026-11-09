@@ -172,15 +172,18 @@ namespace IPropertyManager.UI
         }
 
         /// <summary>
-        /// The View section is there in a drawing: for the selected views (or their edges), or with the sheet itself or
-        /// nothing selected, for every view on the sheet.
+        /// The Drawing section is there while a drawing is active. Its scale row works on the selected views (or their
+        /// edges), or with the sheet itself or nothing selected, on every view on the sheet.
         /// </summary>
         private void ShowViews()
         {
-            _views = ViewScale.Targeted(_app, out _wholeSheet);
+            bool drawing;
+            try { drawing = _app.ActiveDocument is DrawingDocument; } catch { drawing = false; }
+            _viewHeader.Visible = drawing;
+            _viewBody.Visible = drawing && _viewHeader.Open;
+            _views = drawing ? ViewScale.Targeted(_app, out _wholeSheet) : new List<DrawingView>();
             bool any = _views.Count > 0;
-            _viewHeader.Visible = any;
-            _viewBody.Visible = any && _viewHeader.Open;
+            _scaleLabel.Visible = _scaleRow.Visible = any;
             if (!any) return;
             _scaleLabel.Text = _wholeSheet ? "All views" : _views.Count > 1 ? "Scale (" + _views.Count + ")" : "Scale";
             if (_typingScale) return;   // leave what the user is typing alone
@@ -192,6 +195,48 @@ namespace IPropertyManager.UI
 
         private bool _typingScale, _wholeSheet;
         private Label _scaleLabel;
+        private Control _scaleRow;
+        private ThemedCombo _sheetNameProp, _sheetNumberProp;
+        private InventorButton _nameSheets, _numberSheets;
+        private readonly DrawingChoices _choices = DrawingChoices.Load();
+
+        /// <summary>The iProperty rows that can name or number sheets (text and numbers, not dates or yes/no).</summary>
+        private IEnumerable<string> SheetPropertyChoices() =>
+            _fields.Where(f => f.Kind == FieldKind.Text || f.Kind == FieldKind.Number).Select(f => f.Name);
+
+        private void FillSheetChoices()
+        {
+            var names = SheetPropertyChoices().ToList();
+            string Pick(string chosen) => names.FirstOrDefault(n => string.Equals(n, chosen, StringComparison.OrdinalIgnoreCase));
+            _sheetNameProp.SetItems(names, Pick(_choices.SheetName), "Choose an iProperty");
+            _sheetNumberProp.SetItems(names, Pick(_choices.SheetNumber), "Choose an iProperty");
+        }
+
+        private void SheetAction(ThemedCombo choice, bool number)
+        {
+            if (!(SafeActiveDocument() is DrawingDocument drawing)) return;
+            string prop = choice.Value;
+            if (prop == null) { SetStatus("Choose the iProperty first. Rows added with + are listed.", true); return; }
+            try
+            {
+                Cursor = Cursors.WaitCursor;
+                FieldSpec spec = FieldSpec.For(prop);
+                SheetTools.Outcome outcome = number ? SheetTools.NumberSheets(_app, drawing, spec) : SheetTools.NameSheets(_app, drawing, spec);
+                if (!HasEdits) Show(_docs, _docs.Count > 1);   // a shown model may have a new number
+                SetStatus(outcome.Summary(number ? "Numbered" : "Named"), false);
+            }
+            catch (Exception ex)
+            {
+                Log.Write((number ? "Numbering" : "Naming") + " sheets failed: " + ex);
+                SetStatus((number ? "Numbering" : "Naming") + " the sheets failed: " + ex.Message, true);
+            }
+            finally { Cursor = Cursors.Default; }
+        }
+
+        private object SafeActiveDocument()
+        {
+            try { return _app.ActiveDocument; } catch { return null; }
+        }
 
         private void StepScale(int direction) => ChangeScale(() => ViewScale.Step(_app, _views, _wholeSheet, direction));
 
@@ -461,8 +506,8 @@ namespace IPropertyManager.UI
             AddSection(stack, "iProperties", PropertiesTable());
             AddSection(stack, "Material", MaterialTable());
             _viewBody = ViewTable();
-            _viewHeader = AddSection(stack, "View", _viewBody);
-            _viewHeader.Visible = _viewBody.Visible = false;   // shown when a drawing view is selected
+            _viewHeader = AddSection(stack, "Drawing", _viewBody);
+            _viewHeader.Visible = _viewBody.Visible = false;   // shown while a drawing is active
 
             var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
             scroll.Controls.Add(stack);
@@ -576,10 +621,22 @@ namespace IPropertyManager.UI
             return t;
         }
 
-        // Scale  [-] 1 : 20 [+]
+        // Sheet name    [iProperty v] [Apply]
+        // Sheet number  [iProperty v] [Apply]
+        // Scale         [-] 1 : 20 [+]
         private Control ViewTable()
         {
             var t = Table();
+            _sheetNameProp = new ThemedCombo(_theme);
+            _sheetNumberProp = new ThemedCombo(_theme);
+            _nameSheets = new InventorButton(_theme, "Apply", false);
+            _numberSheets = new InventorButton(_theme, "Apply", false);
+            _tips.SetToolTip(_nameSheets, "Name every sheet after this iProperty of the model on it");
+            _tips.SetToolTip(_numberSheets, "Number the model on each sheet 001, 002, 003 ... into this iProperty");
+            Row(t, "Sheet name", WithButton(_sheetNameProp, _nameSheets));
+            Row(t, "Sheet number", WithButton(_sheetNumberProp, _numberSheets));
+            FillSheetChoices();
+
             var stepper = new TableLayoutPanel { ColumnCount = 3, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
             stepper.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 28));
             stepper.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -591,7 +648,22 @@ namespace IPropertyManager.UI
             stepper.Controls.Add(_scale, 1, 0);
             stepper.Controls.Add(_scaleUp, 2, 0);
             _scaleLabel = Row(t, "Scale", stepper);
+            _scaleRow = stepper;
             return t;
+        }
+
+        private static Control WithButton(Control field, Control button)
+        {
+            var row = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60));
+            field.Margin = new Padding(0, 0, 4, 0);
+            field.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            button.Margin = Padding.Empty;
+            button.Size = new Size(56, 22);
+            row.Controls.Add(field, 0, 0);
+            row.Controls.Add(button, 1, 0);
+            return row;
         }
 
         private Label Row(TableLayoutPanel t, string label, Control c)
@@ -644,6 +716,10 @@ namespace IPropertyManager.UI
             _scaleUp.Click += (s, e) => StepScale(1);
             _scale.TextChanged += (s, e) => { if (_scale.ContainsFocus) _typingScale = true; };
             _scale.Committed += TypedScale;
+            _sheetNameProp.SelectedIndexChanged += (s, e) => { if (_sheetNameProp.Value != null) { _choices.SheetName = _sheetNameProp.Value; _choices.Save(); } };
+            _sheetNumberProp.SelectedIndexChanged += (s, e) => { if (_sheetNumberProp.Value != null) { _choices.SheetNumber = _sheetNumberProp.Value; _choices.Save(); } };
+            _nameSheets.Click += (s, e) => SheetAction(_sheetNameProp, false);
+            _numberSheets.Click += (s, e) => SheetAction(_sheetNumberProp, true);
             _scale.Tabbed += back => TypedScale();
             _folder.Click += (s, e) => OpenFolder();
             _save.Click += (s, e) => Save();
