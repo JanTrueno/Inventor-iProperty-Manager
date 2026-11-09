@@ -200,9 +200,14 @@ namespace IPropertyManager.UI
         private InventorButton _nameSheets, _numberSheets;
         private readonly DrawingChoices _choices = DrawingChoices.Load();
 
-        /// <summary>The iProperty rows that can name or number sheets (text and numbers, not dates or yes/no).</summary>
+        /// <summary>
+        /// The iProperties that can name or number sheets (text and numbers, not dates or yes/no): the panel's rows first,
+        /// then the standard ones of Inventor's iProperties dialog.
+        /// </summary>
         private IEnumerable<string> SheetPropertyChoices() =>
-            _fields.Where(f => f.Kind == FieldKind.Text || f.Kind == FieldKind.Number).Select(f => f.Name);
+            _fields.Where(f => f.Kind == FieldKind.Text || f.Kind == FieldKind.Number).Select(f => f.Name)
+                   .Concat(Catalog.All.Where(k => k.Kind == FieldKind.Text || k.Kind == FieldKind.Number).Select(k => k.Name))
+                   .Distinct(StringComparer.OrdinalIgnoreCase);
 
         private void FillSheetChoices()
         {
