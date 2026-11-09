@@ -8,7 +8,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <AssemblyName>IPropertyManager</AssemblyName>
     <RootNamespace>IPropertyManager</RootNamespace>
-    <Version>1.0.3</Version>
+    <Version>1.1.0</Version>
     <Product>iProperty Manager for Inventor</Product>
     <Nullable>disable</Nullable>
     <ImplicitUsings>disable</ImplicitUsings>
