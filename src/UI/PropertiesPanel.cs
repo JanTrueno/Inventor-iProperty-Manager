@@ -171,26 +171,52 @@ namespace IPropertyManager.UI
             }
         }
 
-        /// <summary>The View section is there only while drawing views (or their edges) are selected.</summary>
+        /// <summary>
+        /// The View section is there in a drawing: for the selected views (or their edges), or with the sheet itself or
+        /// nothing selected, for every view on the sheet.
+        /// </summary>
         private void ShowViews()
         {
-            _views = ViewScale.Selected(_app);
+            _views = ViewScale.Targeted(_app, out _wholeSheet);
             bool any = _views.Count > 0;
             _viewHeader.Visible = any;
             _viewBody.Visible = any && _viewHeader.Open;
             if (!any) return;
+            _scaleLabel.Text = _wholeSheet ? "All views" : _views.Count > 1 ? "Scale (" + _views.Count + ")" : "Scale";
+            if (_typingScale) return;   // leave what the user is typing alone
             string shown = ViewScale.Shown(_views);
             _scale.Text = shown ?? "";
-            _scale.Hint = shown == null ? MixedHint : "";
+            _scale.Hint = shown == null ? MixedHint : "1:20";
+            _scale.Invalid = false;
         }
 
-        private void StepScale(int direction)
+        private bool _typingScale, _wholeSheet;
+        private Label _scaleLabel;
+
+        private void StepScale(int direction) => ChangeScale(() => ViewScale.Step(_app, _views, _wholeSheet, direction));
+
+        /// <summary>Enter or Tab in the scale field: give the selected views the typed scale.</summary>
+        private void TypedScale()
         {
+            if (!_typingScale) return;
+            if (!ViewScale.TryParse(_scale.Text, out double scale))
+            {
+                _scale.Invalid = true;
+                SetStatus("\"" + _scale.Text + "\" is not a scale. Type it like 1:20, 2:1 or 20.", true);
+                return;
+            }
+            ChangeScale(() => ViewScale.Set(_app, _views, _wholeSheet, scale));
+        }
+
+        private void ChangeScale(Action change)
+        {
+            _typingScale = false;
             if (_views.Count == 0) return;
             try
             {
                 Cursor = Cursors.WaitCursor;
-                ViewScale.Step(_app, _views, direction);
+                change();
+                SetStatus(null, false);
             }
             catch (Exception ex)
             {
@@ -423,7 +449,7 @@ namespace IPropertyManager.UI
             _add = new IconButton(_theme, "Add an iProperty", DrawPlus) { Size = new Size(26, 22) };
             _material = new ThemedCombo(_theme);
             _mass = new FieldBox(_theme) { ReadOnly = true };
-            _scale = new FieldBox(_theme) { ReadOnly = true };
+            _scale = new FieldBox(_theme);
             _scaleDown = new IconButton(_theme, "Scale down", DrawMinus) { Size = new Size(26, 22) };
             _scaleUp = new IconButton(_theme, "Scale up", DrawPlus) { Size = new Size(26, 22) };
             _save = new InventorButton(_theme, "Save", true);
@@ -564,7 +590,7 @@ namespace IPropertyManager.UI
             stepper.Controls.Add(_scaleDown, 0, 0);
             stepper.Controls.Add(_scale, 1, 0);
             stepper.Controls.Add(_scaleUp, 2, 0);
-            Row(t, "Scale", stepper);
+            _scaleLabel = Row(t, "Scale", stepper);
             return t;
         }
 
@@ -616,6 +642,9 @@ namespace IPropertyManager.UI
             _open.Click += (s, e) => OpenInInventor();
             _scaleDown.Click += (s, e) => StepScale(-1);
             _scaleUp.Click += (s, e) => StepScale(1);
+            _scale.TextChanged += (s, e) => { if (_scale.ContainsFocus) _typingScale = true; };
+            _scale.Committed += TypedScale;
+            _scale.Tabbed += back => TypedScale();
             _folder.Click += (s, e) => OpenFolder();
             _save.Click += (s, e) => Save();
             _revert.Click += (s, e) => Revert();
@@ -624,6 +653,7 @@ namespace IPropertyManager.UI
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == (Keys.Control | Keys.S)) { Save(); return true; }
+            if (keyData == Keys.Escape && _typingScale) { _typingScale = false; ShowViews(); return true; }
             if (keyData == Keys.Escape && HasEdits) { Revert(); return true; }
             return base.ProcessCmdKey(ref msg, keyData);
         }

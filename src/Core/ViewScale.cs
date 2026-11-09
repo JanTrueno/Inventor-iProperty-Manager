@@ -11,22 +11,33 @@ namespace IPropertyManager.Core
     /// </summary>
     internal static class ViewScale
     {
-        // Standard drawing scales, smallest first, as a model-to-paper factor (1:20 = 0.05).
-        private static readonly double[] Steps =
-        {
-            1.0 / 1000, 1.0 / 500, 1.0 / 250, 1.0 / 200, 1.0 / 150, 1.0 / 100, 1.0 / 75, 1.0 / 50, 1.0 / 40, 1.0 / 30,
-            1.0 / 25, 1.0 / 20, 1.0 / 15, 1.0 / 10, 1.0 / 5, 1.0 / 2.5, 1.0 / 2, 1, 2, 5, 10, 20, 50
-        };
+        // Drawing scales, smallest first, as a model-to-paper factor (1:20 = 0.05). Steps of roughly 10-25 %, so a view
+        // can be fitted to the sheet closely.
+        private static readonly double[] Steps = Build(
+            new[] { 1000, 800, 750, 600, 500, 400, 300, 250, 200, 175, 150, 125, 100, 90, 80, 75, 70, 60, 50, 45, 40, 35,
+                    30, 25, 20, 15, 12.5, 10, 9, 8, 7.5, 7, 6, 5, 4, 3, 2.5, 2, 1.5 },
+            new[] { 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 15, 20, 25, 50 });
 
-        /// <summary>The views behind the selection in the active drawing: selected views, or the views of selected edges.</summary>
-        public static List<DrawingView> Selected(Inventor.Application app)
+        private static double[] Build(double[] reductions, double[] enlargements) =>
+            reductions.Select(d => 1.0 / d).Concat(enlargements).ToArray();
+
+        /// <summary>
+        /// The views to scale in the active drawing: the selected views (or the views of selected edges); with the sheet
+        /// selected, or nothing at all, every view on the sheet (<paramref name="wholeSheet"/>).
+        /// </summary>
+        public static List<DrawingView> Targeted(Inventor.Application app, out bool wholeSheet)
         {
+            wholeSheet = false;
             var views = new List<DrawingView>();
             if (!(SafeActive(app) is DrawingDocument drawing)) return views;
             try
             {
+                Sheet sheet = null;
+                int count = 0;
                 foreach (object item in drawing.SelectSet)
                 {
+                    count++;
+                    if (item is Sheet s) { sheet = s; continue; }
                     DrawingView v = item switch
                     {
                         DrawingView view => view,
@@ -36,38 +47,83 @@ namespace IPropertyManager.Core
                     };
                     if (v != null && !views.Contains(v)) views.Add(v);
                 }
+                if (views.Count == 0 && (sheet != null || count == 0))
+                {
+                    foreach (DrawingView v in (sheet ?? drawing.ActiveSheet).DrawingViews) views.Add(v);
+                    wholeSheet = views.Count > 0;
+                }
             }
             catch (Exception ex) { Log.Write("Reading the selected views failed: " + ex.Message); }
             return views;
         }
 
-        /// <summary>The scale shown for the views, or null when they differ.</summary>
+        /// <summary>The scale shown for the views (the scale they follow), or null when they differ.</summary>
         public static string Shown(IList<DrawingView> views)
         {
-            string[] scales = views.Select(v => { try { return v.ScaleString; } catch { return "?"; } }).Distinct().ToArray();
+            string[] scales = Owners(views).Select(v => { try { return v.ScaleString; } catch { return "?"; } }).Distinct().ToArray();
             return scales.Length == 1 ? scales[0] : null;
         }
 
         /// <summary>Moves each view (or the view it follows) one standard scale up (+1) or down (-1), as one undo step.</summary>
-        public static void Step(Inventor.Application app, IList<DrawingView> views, int direction)
+        public static void Step(Inventor.Application app, IList<DrawingView> views, bool wholeSheet, int direction) =>
+            Apply(app, views, wholeSheet, direction > 0 ? "Scale up views" : "Scale down views", current => Next(current, direction));
+
+        /// <summary>Gives each view (or the view it follows) the scale typed in, as one undo step.</summary>
+        public static void Set(Inventor.Application app, IList<DrawingView> views, bool wholeSheet, double scale) =>
+            Apply(app, views, wholeSheet, "Scale views", current => scale);
+
+        /// <summary>
+        /// Reads a typed scale: "1:20", "1/20", "2:1", or a bare number, which is read as 1:n ("20" is 1:20) and below 1
+        /// as the factor itself ("0.5" is 1:2). Both "." and "," work as the decimal sign.
+        /// </summary>
+        public static bool TryParse(string text, out double scale)
         {
-            var targets = new List<DrawingView>();
+            scale = 0;
+            string s = (text ?? "").Trim().Replace(" ", "").Replace(',', '.');
+            if (s.Length == 0) return false;
+            int sep = s.IndexOfAny(new[] { ':', '/' });
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            const System.Globalization.NumberStyles num = System.Globalization.NumberStyles.Float;
+            if (sep >= 0)
+            {
+                if (!double.TryParse(s.Substring(0, sep), num, inv, out double a) ||
+                    !double.TryParse(s.Substring(sep + 1), num, inv, out double b) || a <= 0 || b <= 0) return false;
+                scale = a / b;
+            }
+            else
+            {
+                if (!double.TryParse(s, num, inv, out double n) || n <= 0) return false;
+                scale = n >= 1 ? 1 / n : n;
+            }
+            return scale >= 1e-4 && scale <= 1e4;
+        }
+
+        /// <summary>The views whose scale changes: each view, or the view it follows, once.</summary>
+        private static List<DrawingView> Owners(IEnumerable<DrawingView> views)
+        {
+            var owners = new List<DrawingView>();
             foreach (DrawingView v in views)
             {
                 DrawingView t = ScaleOwner(v);
-                if (!targets.Contains(t)) targets.Add(t);
+                if (!owners.Contains(t)) owners.Add(t);
             }
+            return owners;
+        }
+
+        private static void Apply(Inventor.Application app, IList<DrawingView> views, bool wholeSheet, string undoName, Func<double, double> newScale)
+        {
+            List<DrawingView> targets = Owners(views);
 
             Transaction tx = null;
-            try { tx = app.TransactionManager.StartTransaction((_Document)app.ActiveDocument, direction > 0 ? "Scale up views" : "Scale down views"); }
+            try { tx = app.TransactionManager.StartTransaction((_Document)app.ActiveDocument, undoName); }
             catch (Exception ex) { Log.Write("Could not start a transaction: " + ex.Message); }
             try
             {
                 using (Log.Timed("View scale: " + targets.Count + " view(s)"))
                     foreach (DrawingView t in targets)
                     {
-                        double next = Next(t.Scale, direction);
-                        if (next > 0) t.Scale = next;
+                        double next = newScale(t.Scale);
+                        if (next > 0 && Math.Abs(next - t.Scale) > t.Scale * 1e-9) t.Scale = next;
                     }
                 tx?.End();
             }
@@ -76,6 +132,22 @@ namespace IPropertyManager.Core
                 try { tx?.Abort(); } catch { }
                 throw;
             }
+            if (!wholeSheet) Reselect(app, views);   // a whole sheet was not a selection of views
+        }
+
+        /// <summary>Inventor clears the selection when a view is rescaled; select the views again so the next click works.</summary>
+        private static void Reselect(Inventor.Application app, IList<DrawingView> views)
+        {
+            if (!(SafeActive(app) is DrawingDocument drawing)) return;
+            try
+            {
+                List<DrawingView> still = Targeted(app, out bool sheet);
+                if (sheet) still.Clear();   // nothing selected any more
+                SelectSet set = drawing.SelectSet;
+                foreach (DrawingView v in views)
+                    if (!still.Contains(v)) set.Select(v);
+            }
+            catch (Exception ex) { Log.Write("Selecting the views again failed: " + ex.Message); }
         }
 
         /// <summary>The view whose scale this one follows, up to the base view.</summary>
